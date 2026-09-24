@@ -7,11 +7,11 @@ mocking Codex generation so they do not consume actual ChatGPT allowance.
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest
 
+import app
 from ingest import ingest_directory
 from rag_chain import build_prompt, summarize_sources, answer_question
 from study_notes_loader import StudyNotesLoader
@@ -110,6 +110,93 @@ def test_answer_question_uses_same_sources_for_generation(monkeypatch: pytest.Mo
     assert "Chunk overlap keeps nearby context" in calls[0]
 
     monkeypatch.setattr(rag_chain.CodexAnswerRunnable, "invoke", original)
+
+
+@pytest.mark.asyncio
+async def test_on_message_ingests_attachments_before_answer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Message attachments should be ingested before question retrieval/search occurs."""
+    attachment = tmp_path / "fictional_note.txt"
+    attachment.write_text("Fictional note: blue whales are marine mammals.", encoding="utf-8")
+
+    class FakeFile:
+        def __init__(self, path: Path, name: str) -> None:
+            self.path = str(path)
+            self.name = name
+
+    class FakeMessage:
+        def __init__(self) -> None:
+            self.content = "What are blue whales?"
+            self.elements = [FakeFile(attachment, attachment.name)]
+
+    order: list[str] = []
+
+    async def fake_upload_and_ingest(files):
+        order.append("ingest")
+        assert files[0].name == "fictional_note.txt"
+        return [Path(files[0].path)]
+
+    def fake_answer_question(question: str):
+        order.append("answer")
+        assert question == "What are blue whales?"
+        return {
+            "answer": "Blue whales are marine mammals.",
+            "sources": [{"source": "fictional_note.txt", "title": "Fictional note", "excerpt": "Blue whales are marine mammals."}],
+        }
+
+    class FakeChainlitMessage:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+        async def send(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(app, "upload_and_ingest", fake_upload_and_ingest)
+    monkeypatch.setattr(app, "answer_question", fake_answer_question)
+    monkeypatch.setattr(app.cl, "Message", FakeChainlitMessage)
+
+    await app.on_message(FakeMessage())
+
+    assert order == ["ingest", "answer"]
+
+
+@pytest.mark.asyncio
+async def test_upload_and_ingest_reads_uploaded_file_path_and_keeps_original_name(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Uploaded files should be copied from their local path and keep the original name for ingestion."""
+    upload_dir = tmp_path / "uploads"
+    upload_dir.mkdir()
+    fixture_path = tmp_path / "fictional_note.txt"
+    fixture_path.write_text("Fictional note text.", encoding="utf-8")
+
+    class FakeUpload:
+        def __init__(self, path: Path, name: str) -> None:
+            self.path = str(path)
+            self.name = name
+
+    def fake_ingest_directory(directory: Path) -> int:
+        assert Path(directory) == upload_dir
+        return 1
+
+    monkeypatch.setattr(app, "UPLOADS_DIR", upload_dir)
+    monkeypatch.setattr(app, "ingest_directory", fake_ingest_directory)
+    monkeypatch.setattr(app, "list_available_documents", lambda: [{"source": "fictional_note.txt", "title": "Fictional note"}])
+
+    class FakeChainlitMessage:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+        async def send(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(app.cl, "Message", FakeChainlitMessage)
+
+    result = await app.upload_and_ingest([FakeUpload(fixture_path, "fictional_note.txt")])
+
+    assert result == [upload_dir / "fictional_note.txt"]
+    assert (upload_dir / "fictional_note.txt").read_text(encoding="utf-8") == "Fictional note text."
 
 
 def test_summarize_sources_shortens_long_excerpt() -> None:
