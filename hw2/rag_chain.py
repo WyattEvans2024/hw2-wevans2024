@@ -15,12 +15,13 @@ BASE_DIR = Path(__file__).resolve().parent
 INDEX_DIR = BASE_DIR / ".chromadb"
 
 
-def build_vectorstore() -> Chroma:
+def build_vectorstore(index_dir: Path | None = None) -> Chroma:
     """Open Chroma with the local FastEmbed embedding implementation."""
+    target_dir = index_dir or INDEX_DIR
     embedding = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
     return Chroma(
         embedding_function=embedding,
-        persist_directory=str(INDEX_DIR),
+        persist_directory=str(target_dir),
     )
 
 
@@ -36,9 +37,9 @@ class CodexAnswerRunnable(RunnableSerializable):
             return result.final_response.strip()
 
 
-def list_available_documents() -> list[dict[str, str]]:
+def list_available_documents(index_dir: Path | None = None) -> list[dict[str, str]]:
     """Return the unique source filenames and note titles currently indexed."""
-    vectorstore = build_vectorstore()
+    vectorstore = build_vectorstore(index_dir=index_dir)
     result = vectorstore.get(include=["metadatas"])
     seen: set[tuple[str, str]] = set()
     documents: list[dict[str, str]] = []
@@ -92,19 +93,19 @@ def summarize_sources(docs: list) -> list[dict[str, str]]:
     return sources
 
 
-def answer_question(question: str) -> dict[str, object]:
+def answer_question(question: str, index_dir: Path | None = None) -> dict[str, object]:
     """Retrieve relevant notes once, answer the question, and report the same sources."""
-    vectorstore = build_vectorstore()
+    vectorstore = build_vectorstore(index_dir=index_dir)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     docs = retriever.invoke(question)
     rendered_prompt = build_prompt(question, format_docs(docs))
     answer = CodexAnswerRunnable().invoke(rendered_prompt)
-    return {"answer": answer, "sources": summarize_sources(docs)}
+    return {"answer": answer, "sources": summarize_sources(docs), "prompt": rendered_prompt}
 
 
-def build_rag_chain() -> Runnable:
+def build_rag_chain(index_dir: Path | None = None) -> Runnable:
     """Create the LCEL retrieval and answer pipeline for the study notes app."""
-    vectorstore = build_vectorstore()
+    vectorstore = build_vectorstore(index_dir=index_dir)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
     prompt = ChatPromptTemplate.from_template(

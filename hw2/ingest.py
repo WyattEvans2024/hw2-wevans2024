@@ -16,12 +16,13 @@ BASE_DIR = Path(__file__).resolve().parent
 INDEX_DIR = BASE_DIR / ".chromadb"
 
 
-def build_vectorstore() -> Chroma:
+def build_vectorstore(index_dir: Path | None = None) -> Chroma:
     """Create a local Chroma database using FastEmbed BAAI/bge-small-en-v1.5."""
+    target_dir = index_dir or INDEX_DIR
     embedding = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
     return Chroma(
         embedding_function=embedding,
-        persist_directory=str(INDEX_DIR),
+        persist_directory=str(target_dir),
     )
 
 
@@ -80,9 +81,9 @@ def deduplicate_chunks(chunks: list, vectorstore: Chroma) -> list:
     return unique_chunks
 
 
-def ingest_directory(directory: Path) -> int:
+def ingest_directory(directory: Path, index_dir: Path | None = None) -> int:
     """Split the TXT/JSON notes into chunks and add any new chunks to Chroma."""
-    vectorstore = build_vectorstore()
+    vectorstore = build_vectorstore(index_dir=index_dir)
     documents = load_directory_documents(directory)
     if not documents:
         raise FileNotFoundError(f"No supported study-note files found in: {directory}")
