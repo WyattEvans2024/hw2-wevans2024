@@ -1,0 +1,7 @@
+RAG stands for retrieval-augmented generation. It combines a search over relevant source material with a language model that uses that retrieved context to answer a question.
+
+Chunking breaks long documents into manageable pieces before indexing. Smaller chunks make retrieval faster and help the system focus on a narrow slice of relevant information.
+
+Chunk overlap keeps nearby context at the boundaries between chunks. This helps preserve continuity and reduces the chance of losing meaning when a concept spans two adjacent sections.
+
+Source attribution means identifying where the answer came from. Good RAG systems cite the source text or document metadata so the user can verify the evidence behind the response.

@@ -1,0 +1,12 @@
+{
+  "notes": [
+    {
+      "title": "Retrieval-Augmented Generation",
+      "content": "RAG combines retrieval from a knowledge base with a language model so the answer is grounded in relevant source material."
+    },
+    {
+      "title": "Chunking and Overlap",
+      "content": "Chunking breaks large documents into smaller pieces, while overlap keeps nearby context at boundaries so continuity is preserved across chunks."
+    }
+  ]
+}

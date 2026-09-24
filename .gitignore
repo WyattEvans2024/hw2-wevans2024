@@ -1,0 +1,11 @@
+﻿env/
+.venv/
+.chromadb/
+__pycache__/
+*.pyc
+.env
+uploads/
+.cache/
+.files/
+.pytest_cache/
+/02_LangChain/

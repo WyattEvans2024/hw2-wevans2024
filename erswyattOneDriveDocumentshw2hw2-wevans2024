@@ -1,0 +1,9 @@
+ .gitignore              |  11 [32m+++[m
+ hw2/UPSTREAM.md         |  18 [32m+++++[m
+ hw2/app.py              |  80 [32m++++++++++++++++++++[m
+ hw2/ingest.py           | 191 [32m++++++++++++++++++++++++++++++++++++++++++++++++[m
+ hw2/rag_chain.py        |  74 [32m+++++++++++++++++++[m
+ hw2/screencast_url.txt  |   0
+ hw2/search.py           |  45 [32m++++++++++++[m
+ hw2/wikipedia_loader.py |  70 [32m++++++++++++++++++[m
+ 8 files changed, 489 insertions(+)
